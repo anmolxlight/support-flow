@@ -11,9 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Loader2, Phone, RefreshCw, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, Phone, RefreshCw, X } from 'lucide-react';
 import Link from 'next/link';
 
 interface Recipient {
@@ -43,7 +42,7 @@ interface BatchCallDetails {
   recipients: Recipient[];
 }
 
-export default function BatchCallDetailPage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
+export default function BatchCallDetailPage({ params }: { readonly params: Promise<{ id: string }> | { id: string } }) {
   const router = useRouter();
   const [batchCall, setBatchCall] = useState<BatchCallDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,13 +130,22 @@ export default function BatchCallDetailPage({ params }: { params: Promise<{ id: 
       voicemail: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
     };
 
+    const statusIcons = {
+      completed: '✓',
+      failed: '✕',
+      cancelled: '⊘',
+    };
+
+    const icon = statusIcons[status as keyof typeof statusIcons];
+
     return (
       <span
-        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+        className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ${
           statusColors[status as keyof typeof statusColors] || statusColors.pending
         }`}
       >
-        {status.replace('_', ' ')}
+        {icon && <span className="mr-1">{icon}</span>}
+        {status === 'completed' ? 'Completed' : status.replace('_', ' ').charAt(0).toUpperCase() + status.replace('_', ' ').slice(1)}
       </span>
     );
   };
@@ -161,146 +169,217 @@ export default function BatchCallDetailPage({ params }: { params: Promise<{ id: 
     );
   }
 
+  const getProgressPercentage = () => {
+    if (batchCall.total_calls_scheduled === 0) return 0;
+    return Math.round((batchCall.total_calls_dispatched / batchCall.total_calls_scheduled) * 100);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/outbound">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Link href="/outbound" className="hover:text-foreground">
+          Batch Calling
+        </Link>
+        <span>/</span>
+        <span className="text-foreground">{batchCall.name}</span>
+      </div>
+
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
             <h1 className="text-2xl font-bold text-foreground">{batchCall.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              {batchCall.agent_name || batchCall.agent_id}
-            </p>
+            {/* Agent Badge */}
+            <div className="inline-flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-full">
+              <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                <span className="text-[10px] text-white font-medium">
+                  {(batchCall.agent_name || batchCall.agent_id).charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <span className="text-xs font-medium text-foreground">
+                {batchCall.agent_name || 'Support agent'}
+              </span>
+            </div>
           </div>
+          <p className="text-sm text-muted-foreground font-mono">
+            {batchCall.id}
+          </p>
         </div>
         <div className="flex gap-2">
-          {(batchCall.status === 'failed' || batchCall.status === 'completed') && (
-            <Button variant="outline" onClick={handleRetry}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Retry
-            </Button>
-          )}
           {(batchCall.status === 'pending' || batchCall.status === 'in_progress') && (
-            <Button variant="destructive" onClick={handleCancel}>
+            <Button variant="outline" onClick={handleCancel} className="text-red-600 border-red-200 hover:bg-red-50">
               <X className="mr-2 h-4 w-4" />
               Cancel
             </Button>
           )}
+          <Button variant="outline" onClick={handleRetry}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {getStatusBadge(batchCall.status)}
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Status</p>
+              {getStatusBadge(batchCall.status)}
+            </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Calls
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{batchCall.total_calls_scheduled}</p>
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Total recipients</p>
+              <p className="text-2xl font-bold">{batchCall.total_calls_scheduled}</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Dispatched
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{batchCall.total_calls_dispatched}</p>
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Started</p>
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-muted-foreground">
+                  <path d="M8 1V8L11 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                </svg>
+                <span>
+                  {batchCall.created_at_unix 
+                    ? (() => {
+                        const now = new Date();
+                        const created = new Date(batchCall.created_at_unix * 1000);
+                        const diffMs = now.getTime() - created.getTime();
+                        const diffMins = Math.floor(diffMs / 60000);
+                        if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+                        const diffHours = Math.floor(diffMins / 60);
+                        return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+                      })()
+                    : 'N/A'}
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Created
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">
-              {format(new Date(batchCall.created_at_unix * 1000), 'MMM d, yyyy')}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {format(new Date(batchCall.created_at_unix * 1000), 'h:mm a')}
-            </p>
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Progress</p>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 relative">
+                  <svg className="w-5 h-5 transform -rotate-90">
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="8"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      fill="none"
+                      className="text-muted"
+                    />
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="8"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      fill="none"
+                      strokeDasharray={`${2 * Math.PI * 8}`}
+                      strokeDashoffset={`${2 * Math.PI * 8 * (1 - getProgressPercentage() / 100)}`}
+                      className="text-blue-500"
+                    />
+                  </svg>
+                </div>
+                <span className="text-xl font-bold">{getProgressPercentage()}%</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Recipients Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recipients ({batchCall.recipients?.length || 0})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-foreground">Call Recipients</h2>
+        <div className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-8">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                </TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>
+                  <div className="flex items-center gap-1.5">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-muted-foreground">
+                      <path d="M2 8h12M8 2v12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    <span>Override</span>
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <div className="flex items-center gap-1.5">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-muted-foreground">
+                      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    <span>Status</span>
+                  </div>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!batchCall.recipients || batchCall.recipients.length === 0 ? (
                 <TableRow>
-                  <TableHead>Phone Number</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Conversation ID</TableHead>
-                  <TableHead>Updated</TableHead>
+                  <TableCell colSpan={4} className="h-24 text-center">
+                    No recipients found.
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!batchCall.recipients || batchCall.recipients.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                      No recipients found.
+              ) : (
+                batchCall.recipients.map((recipient) => (
+                  <TableRow key={recipient.id} className="hover:bg-muted/50">
+                    <TableCell className="font-mono text-sm">
+                      phone_number
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {recipient.phone_number || recipient.whatsapp_user_id || '--'}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {recipient.conversation_initiation_client_data?.conversation_config_override?.agent?.language || 'language'}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        let statusClass = 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400';
+                        let statusIcon = '';
+                        
+                        if (recipient.status === 'failed') {
+                          statusClass = 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400';
+                          statusIcon = '✕ ';
+                        } else if (recipient.status === 'completed') {
+                          statusClass = 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400';
+                          statusIcon = '✓ ';
+                        }
+                        
+                        return (
+                          <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${statusClass}`}>
+                            {statusIcon}
+                            {recipient.status.charAt(0).toUpperCase() + recipient.status.slice(1)}
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                   </TableRow>
-                ) : (
-                  batchCall.recipients.map((recipient) => (
-                    <TableRow key={recipient.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          {recipient.phone_number || recipient.whatsapp_user_id || 'N/A'}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(recipient.status)}</TableCell>
-                      <TableCell>
-                        {recipient.conversation_id ? (
-                          <Link
-                            href={`/conversations/${recipient.conversation_id}`}
-                            className="text-blue-600 hover:underline"
-                          >
-                            {recipient.conversation_id.substring(0, 8)}...
-                          </Link>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(recipient.updated_at_unix * 1000), 'MMM d, h:mm a')}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
     </div>
   );
 }

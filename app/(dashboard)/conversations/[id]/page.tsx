@@ -379,61 +379,143 @@ export default function ConversationDetailPage() {
                       const text = item.text || item.content || item.message || '';
                       const timeInCall = item.time_in_call_secs || item.timestamp || null;
                       const isUser = role === 'user';
+                      const toolCalls = item.tool_calls || [];
+                      const toolResults = item.tool_results || [];
                       
                       return (
-                        <div
-                          key={index}
-                          className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
-                        >
-                          {/* Avatar */}
-                          {!isUser && (
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center text-white text-sm font-medium">
-                              {agentName.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          
-                          {/* Message Bubble */}
-                          <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} flex-1 max-w-[70%]`}>
-                            {/* Name (for agent) */}
+                        <div key={index} className="space-y-3">
+                          <div
+                            className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
+                          >
+                            {/* Avatar */}
                             {!isUser && (
-                              <span className="text-sm font-medium text-foreground mb-1">
-                                {agentName}
-                              </span>
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center text-white text-sm font-medium">
+                                {agentName.charAt(0).toUpperCase()}
+                              </div>
                             )}
                             
-                            {/* Message Content */}
-                            <div
-                              className={`rounded-2xl px-4 py-3 ${
-                                isUser
-                                  ? 'bg-blue-500 text-white'
-                                  : 'bg-muted text-foreground'
-                              }`}
-                            >
-                              <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                                {text || 'No content'}
-                              </p>
-                            </div>
-                            
-                            {/* Timestamp and Edit Icon */}
-                            <div className={`flex items-center gap-2 mt-1 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                              {timeInCall !== null && (
-                                <span className="text-xs text-muted-foreground">
-                                  {formatTime(timeInCall)}
+                            {/* Message Bubble */}
+                            <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} flex-1 max-w-[70%]`}>
+                              {/* Name (for agent) */}
+                              {!isUser && (
+                                <span className="text-sm font-medium text-foreground mb-1">
+                                  {agentName}
                                 </span>
                               )}
-                              {isUser && (
-                                <button
-                                  className="p-1 hover:bg-muted/60 rounded transition-colors"
-                                  aria-label="Edit message"
+                              
+                              {/* Message Content */}
+                              {text && (
+                                <div
+                                  className={`rounded-2xl px-4 py-3 ${
+                                    isUser
+                                      ? 'bg-blue-500 text-white'
+                                      : 'bg-muted text-foreground'
+                                  }`}
                                 >
-                                  <Pencil className="w-3 h-3 text-muted-foreground" />
-                                </button>
+                                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                    {text}
+                                  </p>
+                                </div>
                               )}
+                              
+                              {/* Tool Calls */}
+                              {toolCalls.length > 0 && (
+                                <div className="mt-2 space-y-2 w-full">
+                                  {toolCalls.map((toolCall: any, tcIndex: number) => (
+                                    <div
+                                      key={tcIndex}
+                                      className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 px-3 py-2"
+                                    >
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-xs font-semibold text-purple-700 dark:text-purple-300 mt-0.5">
+                                          🔧 Tool Call:
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-xs font-medium text-purple-900 dark:text-purple-100">
+                                            {toolCall.tool_name}
+                                          </div>
+                                          {toolCall.params_as_json && (
+                                            <div className="mt-1 text-xs text-purple-700 dark:text-purple-300 font-mono break-all">
+                                              {toolCall.params_as_json}
+                                            </div>
+                                          )}
+                                          {toolCall.request_id && (
+                                            <div className="mt-1 text-xs text-purple-600 dark:text-purple-400 opacity-75">
+                                              Request ID: {toolCall.request_id}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Tool Results */}
+                              {toolResults.length > 0 && (
+                                <div className="mt-2 space-y-2 w-full">
+                                  {toolResults.map((toolResult: any, trIndex: number) => (
+                                    <div
+                                      key={trIndex}
+                                      className={`rounded-lg border px-3 py-2 ${
+                                        toolResult.is_error
+                                          ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+                                          : 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+                                      }`}
+                                    >
+                                      <div className="flex items-start gap-2">
+                                        <span className={`text-xs font-semibold mt-0.5 ${
+                                          toolResult.is_error
+                                            ? 'text-red-700 dark:text-red-300'
+                                            : 'text-green-700 dark:text-green-300'
+                                        }`}>
+                                          {toolResult.is_error ? '❌ Tool Error:' : '✅ Tool Result:'}
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                          <div className={`text-xs font-medium ${
+                                            toolResult.is_error
+                                              ? 'text-red-900 dark:text-red-100'
+                                              : 'text-green-900 dark:text-green-100'
+                                          }`}>
+                                            {toolResult.tool_name}
+                                          </div>
+                                          {toolResult.result_value && (
+                                            <div className={`mt-1 text-xs font-mono break-all ${
+                                              toolResult.is_error
+                                                ? 'text-red-700 dark:text-red-300'
+                                                : 'text-green-700 dark:text-green-300'
+                                            }`}>
+                                              {toolResult.result_value}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Timestamp and Edit Icon */}
+                              <div className={`flex items-center gap-2 mt-1 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                                {timeInCall !== null && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatTime(timeInCall)}
+                                  </span>
+                                )}
+                                {isUser && (
+                                  <button
+                                    className="p-1 hover:bg-muted/60 rounded transition-colors"
+                                    aria-label="Edit message"
+                                  >
+                                    <Pencil className="w-3 h-3 text-muted-foreground" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
+                            
+                            {/* Spacer for user messages */}
+                            {isUser && <div className="flex-shrink-0 w-8" />}
                           </div>
-                          
-                          {/* Spacer for user messages */}
-                          {isUser && <div className="flex-shrink-0 w-8" />}
                         </div>
                       );
                     })

@@ -5,21 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/EmptyState';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Phone, Plus, Search, MoreVertical, Loader2, RefreshCw } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Phone, Plus, Search, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 
@@ -36,6 +23,7 @@ interface BatchCall {
   status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
   phone_number_id: string | null;
   phone_provider: 'twilio' | 'sip_trunk' | null;
+  retry_count?: number;
 }
 
 export default function OutboundPage() {
@@ -65,62 +53,29 @@ export default function OutboundPage() {
     }
   };
 
-  const handleCancel = async (batchId: string) => {
-    if (!confirm('Are you sure you want to cancel this batch call?')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/batch-calls/${batchId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to cancel batch call');
-      }
-
-      loadBatchCalls();
-    } catch (error: any) {
-      console.error('Error cancelling batch call:', error);
-      alert(error.message || 'Failed to cancel batch call');
-    }
-  };
-
-  const handleRetry = async (batchId: string) => {
-    try {
-      const response = await fetch(`/api/batch-calls/${batchId}/retry`, {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to retry batch call');
-      }
-
-      loadBatchCalls();
-    } catch (error: any) {
-      console.error('Error retrying batch call:', error);
-      alert(error.message || 'Failed to retry batch call');
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusColors = {
-      pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
-      in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-      completed: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
-      failed: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
-      cancelled: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300',
+  const getStatusDisplay = (status: string) => {
+    const statusConfig = {
+      completed: { icon: CheckCircle2, text: 'Completed', color: 'text-green-600 dark:text-green-400' },
+      pending: { icon: Clock, text: 'Pending', color: 'text-yellow-600 dark:text-yellow-400' },
+      in_progress: { icon: Clock, text: 'In Progress', color: 'text-blue-600 dark:text-blue-400' },
+      failed: { icon: Clock, text: 'Failed', color: 'text-red-600 dark:text-red-400' },
+      cancelled: { icon: Clock, text: 'Cancelled', color: 'text-gray-600 dark:text-gray-400' },
     };
 
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    const Icon = config.icon;
+
     return (
-      <span
-        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-          statusColors[status as keyof typeof statusColors] || statusColors.pending
-        }`}
-      >
-        {status.replace('_', ' ')}
-      </span>
+      <div className="flex items-center gap-1">
+        <Icon className={`h-4 w-4 ${config.color}`} />
+        <span className={`text-sm font-medium ${config.color}`}>{config.text}</span>
+      </div>
     );
+  };
+
+  const getProgressPercentage = (batch: BatchCall) => {
+    if (batch.total_calls_scheduled === 0) return 0;
+    return Math.round((batch.total_calls_dispatched / batch.total_calls_scheduled) * 100);
   };
 
   const filteredBatchCalls = batchCalls.filter((batch) =>
@@ -172,73 +127,89 @@ export default function OutboundPage() {
             />
           </div>
 
-          <div className="rounded-md border bg-card text-card-foreground border-border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Agent</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Calls</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredBatchCalls.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      No batch calls found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredBatchCalls.map((batch) => (
-                    <TableRow key={batch.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">{batch.name}</TableCell>
-                      <TableCell>{batch.agent_name || batch.agent_id}</TableCell>
-                      <TableCell>{getStatusBadge(batch.status)}</TableCell>
-                      <TableCell>
-                        {batch.total_calls_dispatched} / {batch.total_calls_scheduled}
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(batch.created_at_unix * 1000), 'MMM d, yyyy, h:mm a')}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => router.push(`/outbound/${batch.id}`)}
-                            >
-                              View Details
-                            </DropdownMenuItem>
-                            {(batch.status === 'failed' || batch.status === 'completed') && (
-                              <DropdownMenuItem onClick={() => handleRetry(batch.id)}>
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Retry
-                              </DropdownMenuItem>
-                            )}
-                            {(batch.status === 'pending' || batch.status === 'in_progress') && (
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleCancel(batch.id)}
-                              >
-                                Cancel
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          {filteredBatchCalls.length === 0 ? (
+            <div className="flex items-center justify-center h-48 text-muted-foreground">
+              No batch calls found.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredBatchCalls.map((batch) => (
+                <Card
+                  key={batch.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => router.push(`/outbound/${batch.id}`)}
+                >
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      {/* Header */}
+                      <div>
+                        <h3 className="text-lg font-semibold text-foreground mb-1">
+                          {batch.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {batch.total_calls_scheduled} recipient{batch.total_calls_scheduled === 1 ? '' : 's'}
+                        </p>
+                      </div>
+
+                      {/* Agent Badge */}
+                      <div className="inline-flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-full">
+                        <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                          <span className="text-[10px] text-white font-medium">
+                            {(batch.agent_name || batch.agent_id).charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <span className="text-xs font-medium text-foreground">
+                          {batch.agent_name || batch.agent_id}
+                        </span>
+                      </div>
+
+                      {/* Status and Progress */}
+                      <div className="flex items-center justify-between">
+                        {getStatusDisplay(batch.status)}
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <div className="w-4 h-4 relative">
+                            <svg className="w-4 h-4 transform -rotate-90">
+                              <circle
+                                cx="8"
+                                cy="8"
+                                r="6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                                className="text-muted"
+                              />
+                              <circle
+                                cx="8"
+                                cy="8"
+                                r="6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                                strokeDasharray={`${2 * Math.PI * 6}`}
+                                strokeDashoffset={`${2 * Math.PI * 6 * (1 - getProgressPercentage(batch) / 100)}`}
+                                className="text-blue-500"
+                              />
+                            </svg>
+                          </div>
+                          <span className="font-medium">{getProgressPercentage(batch)}%</span>
+                        </div>
+                      </div>
+
+                      {/* Created Time */}
+                      {Boolean(batch.created_at_unix) && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
+                          <Clock className="h-3 w-3" />
+                          <span>
+                            {format(new Date(batch.created_at_unix * 1000), 'MMM d, h:mm a')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
