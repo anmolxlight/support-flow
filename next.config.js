@@ -9,8 +9,7 @@ const nextConfig = {
     ],
   },
   output: 'standalone',
-  // Add empty turbopack config to silence warning
-  turbopack: {},
+  serverExternalPackages: ['twilio'],
   webpack: (config, { isServer }) => {
     // Exclude server-only packages from client bundle
     if (!isServer) {

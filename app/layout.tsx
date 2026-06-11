@@ -1,48 +1,33 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { ThemeProvider } from "@/components/ThemeProvider";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: "SupportFlow AI - Conversational Agent Platform",
-  description: "Enterprise AI conversational agent platform powered by ElevenLabs",
+  title: 'SupportFlow AI - Conversational Intelligence Platform',
+  description:
+    'Build production-ready voice agents with natural conversations, guardrailed reasoning, and real-time analytics.',
+  openGraph: {
+    title: 'SupportFlow AI',
+    description: 'Conversational intelligence platform',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  const theme = localStorage.getItem('supportflow-theme') || 'system';
-                  const root = document.documentElement;
-                  if (theme === 'system') {
-                    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                    root.classList.add(systemTheme);
-                  } else {
-                    root.classList.add(theme);
-                  }
-                } catch (e) {}
-              })();
-            `,
-          }}
-        />
-      </head>
       <body className={inter.className}>
-        <ThemeProvider defaultTheme="system" storageKey="supportflow-theme">
+        <ThemeProvider defaultTheme="dark" storageKey="supportflow-theme">
           {children}
         </ThemeProvider>
       </body>
     </html>
   );
 }
-

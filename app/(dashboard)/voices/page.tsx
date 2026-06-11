@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { LoadingState } from '@/components/LoadingState';
 import {
   Select,
   SelectContent,
@@ -17,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Search, Plus, Play, MoreVertical, MessageCircle } from 'lucide-react';
+import { Search, Plus, Play, MoreVertical, MessageCircle, Volume2, Music } from 'lucide-react';
 import { listVoices } from '@/lib/elevenlabs';
 
 export default function VoicesPage() {
@@ -51,37 +52,36 @@ export default function VoicesPage() {
   });
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+    return <LoadingState message="Loading voices..." />;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="page-enter space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Voices</h1>
-          <p className="text-sm text-muted-foreground">
-            Browse and select voices for your agents
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">Voice Library</h1>
+          <p className="text-sm text-muted-foreground">Browse and select voices for your agents</p>
         </div>
-        <Button>
+        <Button size="sm">
           <Plus className="mr-2 h-4 w-4" />
           Create or Clone a Voice
         </Button>
       </div>
 
       {/* Search and Filters */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search library voices..."
+            placeholder="Search voices..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
           />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-44">
             <SelectValue placeholder="Filter by Category" />
           </SelectTrigger>
           <SelectContent>
@@ -95,12 +95,12 @@ export default function VoicesPage() {
       {/* Slot Counter */}
       <Card>
         <CardContent className="py-3">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
               <MessageCircle className="mr-2 inline-block h-4 w-4" />
               <strong className="text-foreground">2 / 3 slots used</strong>
             </span>
-            <Button variant="link" size="sm">
+            <Button variant="link" size="sm" className="text-primary">
               Feedback
             </Button>
           </div>
@@ -108,83 +108,83 @@ export default function VoicesPage() {
       </Card>
 
       {/* Voice Cards Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredVoices.map((voice) => (
-          <Card key={voice.voice_id} className="overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-lg font-bold text-white">
-                    {voice.name?.charAt(0) || 'V'}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {filteredVoices.length === 0 ? (
+          <div className="col-span-full">
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Volume2 className="mx-auto mb-4 h-8 w-8 text-muted-foreground/60" />
+                <p className="text-muted-foreground">No voices found matching your criteria.</p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          filteredVoices.map((voice) => (
+            <Card key={voice.voice_id} className="overflow-hidden card-hover">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-primary text-lg font-bold text-primary-foreground">
+                      {voice.name?.charAt(0) || 'V'}
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-sm leading-tight">{voice.name}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">{voice.labels?.use_case || 'General'}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-sm leading-tight">
-                      {voice.name}
-                    </h3>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>View Details</DropdownMenuItem>
+                      <DropdownMenuItem>Clone Voice</DropdownMenuItem>
+                      <DropdownMenuItem>Add to Favorites</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <div className="flex flex-wrap gap-1">
+                    {voice.labels?.language && (
+                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        {voice.labels.language}
+                      </span>
+                    )}
+                    {voice.category && (
+                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        {voice.category}
+                      </span>
+                    )}
                   </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>View Details</DropdownMenuItem>
-                    <DropdownMenuItem>Clone Voice</DropdownMenuItem>
-                    <DropdownMenuItem>Add to Favorites</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
 
-              <div className="mt-3 space-y-2">
-                <div className="flex flex-wrap gap-1">
-                  {voice.labels?.language && (
-                    <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-                      {voice.labels.language}
-                    </span>
-                  )}
-                  {voice.category && (
-                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
-                      {voice.category}
-                    </span>
-                  )}
-                </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{voice.labels?.age || '—'}</span>
+                    <span>{voice.labels?.use_case || '—'}</span>
+                  </div>
 
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>{voice.labels?.age || 'Unknown age'}</span>
-                  <span>{voice.labels?.use_case || '0 uses'}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      if (voice.preview_url) {
+                        const audio = new Audio(voice.preview_url);
+                        audio.play();
+                      }
+                    }}
+                  >
+                    <Play className="mr-2 h-3 w-3" />
+                    Preview
+                  </Button>
                 </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => {
-                    // Play preview functionality
-                    if (voice.preview_url) {
-                      const audio = new Audio(voice.preview_url);
-                      audio.play();
-                    }
-                  }}
-                >
-                  <Play className="mr-2 h-3 w-3" />
-                  Preview
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
-
-      {filteredVoices.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-gray-500">No voices found matching your criteria.</p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
-

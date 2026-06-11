@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/EmptyState';
+import { LoadingState } from '@/components/LoadingState';
 import {
   Table,
   TableBody,
@@ -41,6 +42,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { addUrlKnowledge, addTextKnowledge, getKnowledgeBase, removeKnowledge, getKnowledge, addFileKnowledge } from '@/app/actions/knowledge';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 export default function KnowledgeBasePage() {
@@ -61,15 +63,10 @@ export default function KnowledgeBasePage() {
 
   const stripHtml = (html: string) => {
     if (!html) return '';
-    // Replace block tags with newlines
     let text = html.replace(/<\/(p|div|h[1-6]|li|br)>/gi, '\n');
-    // Replace <br> tags with newlines
     text = text.replace(/<br\s*\/?>/gi, '\n');
-    // Strip all other tags
     text = text.replace(/<[^>]*>?/gm, '');
-    // Decode HTML entities (basic)
     text = text.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-    // Trim but preserve internal newlines
     return text.trim();
   };
 
@@ -94,14 +91,12 @@ export default function KnowledgeBasePage() {
     }
   };
 
-
-
   const handleRowClick = async (doc: any) => {
-    setSelectedDoc(doc); // Show metadata immediately
+    setSelectedDoc(doc);
     try {
       const result = await getKnowledge(doc.id);
       if (result.success) {
-        setSelectedDoc(result.data); // Update with full content
+        setSelectedDoc(result.data);
       } else {
         console.error('Error fetching document details:', result.error);
       }
@@ -111,9 +106,6 @@ export default function KnowledgeBasePage() {
   };
 
   const handleDelete = async (docId: string) => {
-    console.log('Deleting document:', docId);
-
-    // Optimistic update
     const previousDocuments = [...documents];
     setDocuments(prev => prev.filter(doc => doc.id !== docId));
 
@@ -123,16 +115,12 @@ export default function KnowledgeBasePage() {
 
     try {
       const result = await removeKnowledge(docId);
-      console.log('Delete result:', result);
-
       if (!result.success) {
-        // Revert on failure
         setDocuments(previousDocuments);
         alert('Failed to delete document: ' + result.error);
       }
     } catch (error) {
       console.error('Error deleting document:', error);
-      // Revert on error
       setDocuments(previousDocuments);
       alert('Error deleting document');
     }
@@ -154,12 +142,8 @@ export default function KnowledgeBasePage() {
 
       try {
         const result = await addFileKnowledge(formData);
-        if (result.success) {
-          successCount++;
-        } else {
-          console.error(`Failed to upload ${file.name}:`, result.error);
-          failCount++;
-        }
+        if (result.success) successCount++;
+        else failCount++;
       } catch (error) {
         console.error(`Error uploading ${file.name}:`, error);
         failCount++;
@@ -170,7 +154,6 @@ export default function KnowledgeBasePage() {
 
     if (successCount > 0) {
       loadDocuments();
-      // Reset input
       event.target.value = '';
     }
 
@@ -225,162 +208,251 @@ export default function KnowledgeBasePage() {
   );
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+    return <LoadingState message="Loading knowledge base..." />;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Knowledge Base</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage information that agents can access
-          </p>
-        </div>
-      </div>
-
-
-
-      {/* Action Buttons */}
-      <div className="flex gap-3">
-        <Dialog open={isUrlDialogOpen} onOpenChange={setIsUrlDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <Globe className="mr-2 h-4 w-4" />
-              Add URL
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Knowledge from URL</DialogTitle>
-              <DialogDescription>
-                Enter a URL to fetch content from. The text will be extracted and added to the knowledge base.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="url">URL</Label>
-                <Input
-                  id="url"
-                  placeholder="https://example.com/article"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsUrlDialogOpen(false)} disabled={actionLoading}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddUrl} disabled={actionLoading || !urlInput}>
-                {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Add URL
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <label>
-          <Button variant="outline" asChild>
-            <span>
-              <Upload className="mr-2 h-4 w-4" />
-              Add Files
-            </span>
-          </Button>
-          <input
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileUpload}
-            accept=".pdf,.doc,.docx,.txt"
-          />
-        </label>
-
-        <Dialog open={isTextDialogOpen} onOpenChange={setIsTextDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <FileText className="mr-2 h-4 w-4" />
-              Create Text
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Text Knowledge</DialogTitle>
-              <DialogDescription>
-                Manually enter text content to add to the knowledge base.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  placeholder="Document Title"
-                  value={textTitle}
-                  onChange={(e) => setTextTitle(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="content">Content</Label>
-                <Textarea
-                  id="content"
-                  placeholder="Enter the text content here..."
-                  className="min-h-[200px]"
-                  value={textContent}
-                  onChange={(e) => setTextContent(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsTextDialogOpen(false)} disabled={actionLoading}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddText} disabled={actionLoading || !textTitle || !textContent}>
-                {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Text
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+    <div className="page-enter space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Knowledge Base</h1>
+        <p className="text-sm text-muted-foreground">Manage information that agents can access</p>
       </div>
 
       {documents.length === 0 && !searchQuery ? (
-        <EmptyState
-          icon={BookOpen}
-          title="No documents yet"
-          description="Upload documents to provide knowledge to your agents"
-          actionLabel="Add Files"
-          onAction={() => {
-            const input = document.querySelector<HTMLInputElement>('input[type=file]');
-            input?.click();
-          }}
-        />
-      ) : (
-        <div className="grid grid-cols-12 gap-6 h-[calc(100vh-10rem)]">
-          <div className={`${selectedDoc ? 'col-span-4' : 'col-span-12'} space-y-4 flex flex-col h-full`}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search Knowledge Base..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+        <>
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3">
+            <Dialog open={isUrlDialogOpen} onOpenChange={setIsUrlDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Globe className="mr-2 h-4 w-4" />
+                  Add URL
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Knowledge from URL</DialogTitle>
+                  <DialogDescription>
+                    Enter a URL to fetch content from. The text will be extracted and added to the knowledge base.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="url">URL</Label>
+                    <Input
+                      id="url"
+                      placeholder="https://example.com/article"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsUrlDialogOpen(false)} disabled={actionLoading}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddUrl} disabled={actionLoading || !urlInput}>
+                    {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Add URL
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setIsTextDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Type
+            <label>
+              <Button variant="outline" size="sm" asChild>
+                <span>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Add Files
+                </span>
               </Button>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileUpload}
+                accept=".pdf,.doc,.docx,.txt"
+              />
+            </label>
+
+            <Dialog open={isTextDialogOpen} onOpenChange={setIsTextDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Create Text
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create Text Knowledge</DialogTitle>
+                  <DialogDescription>
+                    Manually enter text content to add to the knowledge base.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      placeholder="Document Title"
+                      value={textTitle}
+                      onChange={(e) => setTextTitle(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="content">Content</Label>
+                    <Textarea
+                      id="content"
+                      placeholder="Enter the text content here..."
+                      className="min-h-[200px]"
+                      value={textContent}
+                      onChange={(e) => setTextContent(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsTextDialogOpen(false)} disabled={actionLoading}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddText} disabled={actionLoading || !textTitle || !textContent}>
+                    {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Text
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <EmptyState
+            icon={BookOpen}
+            title="No documents yet"
+            description="Upload documents to provide knowledge to your agents"
+            actionLabel="Add Files"
+            onAction={() => {
+              const input = document.querySelector<HTMLInputElement>('input[type=file]');
+              input?.click();
+            }}
+          />
+        </>
+      ) : (
+        <div className="grid grid-cols-12 gap-6">
+          <div className={`${selectedDoc ? 'col-span-12 lg:col-span-4' : 'col-span-12'} space-y-4`}>
+            {/* Action Buttons + Search */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search Knowledge Base..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Dialog open={isUrlDialogOpen} onOpenChange={setIsUrlDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Globe className="mr-2 h-4 w-4" />
+                    URL
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Knowledge from URL</DialogTitle>
+                    <DialogDescription>
+                      Enter a URL to fetch content from.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="url2">URL</Label>
+                      <Input
+                        id="url2"
+                        placeholder="https://example.com/article"
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsUrlDialogOpen(false)} disabled={actionLoading}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleAddUrl} disabled={actionLoading || !urlInput}>
+                      {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Add URL
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <label>
+                <Button variant="outline" size="sm" asChild>
+                  <span>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Files
+                  </span>
+                </Button>
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  accept=".pdf,.doc,.docx,.txt"
+                />
+              </label>
+              <Dialog open={isTextDialogOpen} onOpenChange={setIsTextDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Text
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create Text Knowledge</DialogTitle>
+                    <DialogDescription>
+                      Manually enter text content to add to the knowledge base.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="title2">Title</Label>
+                      <Input
+                        id="title2"
+                        placeholder="Document Title"
+                        value={textTitle}
+                        onChange={(e) => setTextTitle(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="content2">Content</Label>
+                      <Textarea
+                        id="content2"
+                        placeholder="Enter the text content here..."
+                        className="min-h-[200px]"
+                        value={textContent}
+                        onChange={(e) => setTextContent(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsTextDialogOpen(false)} disabled={actionLoading}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleAddText} disabled={actionLoading || !textTitle || !textContent}>
+                      {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Text
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
-            <div className="rounded-md border bg-card text-card-foreground border-border">
+            <div className="rounded-lg border bg-card">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    {!selectedDoc && <TableHead>Created by</TableHead>}
                     {!selectedDoc && <TableHead>Last updated</TableHead>}
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
@@ -388,7 +460,7 @@ export default function KnowledgeBasePage() {
                 <TableBody>
                   {filteredDocuments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={selectedDoc ? 2 : 4} className="h-24 text-center">
+                      <TableCell colSpan={selectedDoc ? 2 : 3} className="h-24 text-center text-muted-foreground">
                         No documents found.
                       </TableCell>
                     </TableRow>
@@ -397,33 +469,37 @@ export default function KnowledgeBasePage() {
                       <TableRow
                         key={doc.id}
                         onClick={() => handleRowClick(doc)}
-                        className="cursor-pointer hover:bg-muted/50"
+                        className={cn(
+                          'cursor-pointer transition-colors',
+                          selectedDoc?.id === doc.id ? 'bg-muted/50' : 'hover:bg-muted/50'
+                        )}
                       >
-                        <TableCell className="font-medium text-foreground">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                            </div>
                             <div>
-                              <p>{doc.name}</p>
+                              <p className="text-sm">{doc.name}</p>
                               <p className="text-xs text-muted-foreground">{doc.file_size} kB</p>
                             </div>
                           </div>
                         </TableCell>
-                        {!selectedDoc && <TableCell className="text-muted-foreground">anmolx.work@gmail.com</TableCell>}
                         {!selectedDoc && (
-                          <TableCell className="text-muted-foreground">
-                            {doc.created_at ? format(new Date(doc.created_at), 'MMM d, yyyy, h:mm a') : 'N/A'}
+                          <TableCell className="text-muted-foreground text-sm">
+                            {doc.created_at ? format(new Date(doc.created_at), 'MMM d, yyyy') : 'N/A'}
                           </TableCell>
                         )}
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                className="text-red-600 dark:text-red-400"
+                                className="text-destructive focus:text-destructive"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleDelete(doc.id);
@@ -442,26 +518,27 @@ export default function KnowledgeBasePage() {
             </div>
           </div>
 
-          {/* Middle Column: File Content */}
           {selectedDoc && (
-            <div className="col-span-8 space-y-4 flex flex-col h-full">
-              <Card className="flex-1 flex flex-col overflow-hidden">
-                <CardContent className="p-6 flex-1 overflow-y-auto">
-                  <h3 className="mb-4 font-medium text-lg border-b border-border pb-2">File Content</h3>
-                  <div className="text-sm text-muted-foreground whitespace-pre-wrap max-w-3xl mx-auto">
+            <div className="col-span-12 lg:col-span-8">
+              <Card className="h-full">
+                <CardContent className="p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">{selectedDoc.name}</h3>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedDoc(null)} className="text-muted-foreground">
+                      ×
+                    </Button>
+                  </div>
+                  <div className="text-sm text-muted-foreground whitespace-pre-wrap max-w-3xl leading-relaxed">
                     {stripHtml(selectedDoc.extracted_inner_html || selectedDoc.name)}
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
-
-
-
         </div>
-      )
-      }
-    </div >
+      )}
+    </div>
   );
 }
 
+}

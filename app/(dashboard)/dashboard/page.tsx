@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { MetricCard } from '@/components/MetricCard';
+import { LoadingState } from '@/components/LoadingState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   LineChart,
@@ -12,7 +13,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Phone, Clock } from 'lucide-react';
+import { Phone, Clock, TrendingUp, RefreshCw, Users, Globe } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface DashboardStats {
   totalCalls: number;
@@ -38,22 +41,20 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('Fetching dashboard stats...');
+
       const response = await fetch('/api/stats?days=30');
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
-      
+
       const data = await response.json();
-      console.log('Stats loaded successfully:', data);
       setStats(data);
     } catch (err) {
       console.error('Error loading stats:', err);
       setError(err instanceof Error ? err.message : 'Failed to load stats');
-      
+
       // Set empty stats on error
       setStats({
         totalCalls: 0,
@@ -79,146 +80,143 @@ export default function DashboardPage() {
   const formatTotalDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${mins}m`;
     }
     return `${mins}m`;
   };
 
+  const chartTooltipStyle = {
+    backgroundColor: 'hsl(var(--card))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '0.5rem',
+    color: 'hsl(var(--foreground))',
+  };
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Loading dashboard..." />;
   }
 
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <p className="text-red-600 dark:text-red-400 mb-4">Error: {error}</p>
-          <button
-            onClick={loadStats}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-          >
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="rounded-2xl bg-destructive/10 p-4">
+            <Phone className="h-8 w-8 text-destructive" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Failed to load dashboard</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+          </div>
+          <Button onClick={loadStats} variant="outline" size="sm">
+            <RefreshCw className="mr-2 h-4 w-4" />
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
+
   return (
-    <div className="space-y-6">
+    <div className="page-enter space-y-8">
+      {/* Greeting */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Good afternoon, Anmol</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">My Workspace</p>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Overview of your workspace performance
+        </p>
       </div>
 
       {/* Metrics Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <MetricCard 
-          title="Number of calls" 
-          value={stats?.totalCalls.toString() || "0"} 
-          icon={Phone} 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard
+          title="Total Calls"
+          value={stats?.totalCalls.toString() || '0'}
+          icon={Phone}
+          trend={{ value: '12%', positive: true }}
         />
-        <MetricCard 
-          title="Average duration" 
-          value={stats ? formatDuration(stats.averageDuration) : "0:00"} 
-          icon={Clock} 
+        <MetricCard
+          title="Average Duration"
+          value={stats ? formatDuration(stats.averageDuration) : '0:00'}
+          icon={Clock}
         />
-        <MetricCard 
-          title="Total duration" 
-          value={stats ? formatTotalDuration(stats.totalDuration) : "0m"} 
-          subtitle="all calls" 
-          icon={Clock} 
+        <MetricCard
+          title="Total Duration"
+          value={stats ? formatTotalDuration(stats.totalDuration) : '0m'}
+          subtitle="all calls"
+          icon={TrendingUp}
         />
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Call Volume Chart */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-medium">Call Volume</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base font-semibold">Call Volume</CardTitle>
+            <span className="text-xs text-muted-foreground">Last 30 days</span>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={stats?.callsData || []}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
-                <XAxis 
-                  dataKey="date" 
-                  className="text-xs" 
-                  tick={{ fill: 'currentColor' }}
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                  tickLine={false}
                 />
-                <YAxis 
-                  className="text-xs"
-                  tick={{ fill: 'currentColor' }}
+                <YAxis
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
                 />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'var(--background)', 
-                    border: '1px solid var(--border)',
-                    borderRadius: '0.375rem'
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="calls" 
-                  stroke="#3b82f6" 
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Line
+                  type="monotone"
+                  dataKey="calls"
+                  stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   dot={false}
+                  activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* Success Rate Chart */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium">Overall success rate</CardTitle>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base font-semibold">Success Rate</CardTitle>
+            <span className="text-xs text-muted-foreground">Last 30 days</span>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
-              <div className="text-3xl font-bold">
-                {stats ? `${stats.successRate.toFixed(1)}%` : '0%'}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {stats?.totalCalls || 0} total calls
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={300}>
               <LineChart data={stats?.successData || []}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
-                <XAxis 
-                  dataKey="date" 
-                  className="text-xs"
-                  tick={{ fill: 'currentColor' }}
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                  tickLine={false}
                 />
-                <YAxis 
-                  className="text-xs"
-                  tick={{ fill: 'currentColor' }}
+                <YAxis
                   domain={[0, 100]}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `${v}%`}
                 />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'var(--background)', 
-                    border: '1px solid var(--border)',
-                    borderRadius: '0.375rem'
-                  }}
-                  formatter={(value: number) => `${value.toFixed(1)}%`}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="rate" 
-                  stroke="#10b981" 
+                <Tooltip contentStyle={chartTooltipStyle} formatter={(value: number) => [`${value}%`, 'Rate']} />
+                <Line
+                  type="monotone"
+                  dataKey="rate"
+                  stroke="#10b981"
                   strokeWidth={2}
                   dot={false}
+                  activeDot={{ r: 4, fill: '#10b981' }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -226,73 +224,77 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Additional Widgets */}
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Agent & Language breakdown */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Top Agents */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium">Most called agents</CardTitle>
-              <span className="text-xs text-gray-500 dark:text-gray-400">Top 5</span>
-            </div>
+            <CardTitle className="text-base font-semibold">Top Agents</CardTitle>
           </CardHeader>
           <CardContent>
             {stats && stats.topAgents.length > 0 ? (
               <div className="space-y-4">
                 {stats.topAgents.map((agent, index) => (
                   <div key={agent.agentId} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 font-medium text-sm flex-shrink-0">
-                        {index + 1}
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                        {agent.agentName.charAt(0).toUpperCase()}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {agent.agentName}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {agent.agentId !== agent.agentName ? agent.agentId.substring(0, 15) + '...' : ''}
-                        </p>
-                      </div>
+                      <span className="text-sm font-medium">{agent.agentName}</span>
                     </div>
-                    <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 ml-2 flex-shrink-0">
-                      {agent.calls} {agent.calls === 1 ? 'call' : 'calls'}
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-24 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{
+                            width: `${(agent.calls / Math.max(...stats.topAgents.map((a) => a.calls))) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm text-muted-foreground min-w-[3rem] text-right">
+                        {agent.calls}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center py-12 text-center">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-300">No agent data has been collected</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Make some calls to see agent statistics</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="rounded-xl bg-muted p-3 mb-3">
+                  <Users className="h-6 w-6 text-muted-foreground/60" />
                 </div>
+                <p className="text-sm font-medium text-foreground">No agent data collected</p>
+                <p className="text-xs text-muted-foreground mt-1">Make some calls to see agent statistics</p>
               </div>
             )}
           </CardContent>
         </Card>
 
+        {/* Language Breakdown */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Language Breakdown</CardTitle>
+            <CardTitle className="text-base font-semibold">Language Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             {stats && stats.languages.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {stats.languages.slice(0, 5).map((lang, index) => {
                   const percentage = stats.totalCalls > 0 ? (lang.count / stats.totalCalls) * 100 : 0;
                   return (
                     <div key={lang.language}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {lang.language}
-                        </span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm font-medium">{lang.language}</span>
+                        <span className="text-sm text-muted-foreground">
                           {lang.count} ({percentage.toFixed(1)}%)
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div 
-                          className="bg-indigo-600 dark:bg-indigo-500 h-2 rounded-full transition-all"
-                          style={{ width: `${percentage}%` }}
+                      <div className="w-full rounded-full bg-muted h-2 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${percentage}%`,
+                            backgroundColor: `hsl(${246 - index * 30}, 75%, ${60 - index * 8}%)`,
+                          }}
                         />
                       </div>
                     </div>
@@ -300,11 +302,12 @@ export default function DashboardPage() {
                 })}
               </div>
             ) : (
-              <div className="flex items-center justify-center py-12 text-center">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-300">No language data has been collected</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Language is detected from call transcripts</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="rounded-xl bg-muted p-3 mb-3">
+                  <Globe className="h-6 w-6 text-muted-foreground/60" />
                 </div>
+                <p className="text-sm font-medium text-foreground">No language data collected</p>
+                <p className="text-xs text-muted-foreground mt-1">Language is detected from call transcripts</p>
               </div>
             )}
           </CardContent>
@@ -313,4 +316,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

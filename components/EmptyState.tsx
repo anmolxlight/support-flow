@@ -1,4 +1,4 @@
-import { LucideIcon } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
 
 interface EmptyStateProps {
@@ -17,18 +17,17 @@ export function EmptyState({
   onAction,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="rounded-full bg-muted p-4">
-        <Icon className="h-8 w-8 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="mb-6 rounded-2xl bg-muted p-4 ring-1 ring-border">
+        <Icon className="h-10 w-10 text-muted-foreground/60" />
       </div>
-      <h3 className="mt-4 text-lg font-medium text-foreground">{title}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+      <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{description}</p>
       {actionLabel && onAction && (
-        <Button onClick={onAction} className="mt-4">
+        <Button onClick={onAction} className="mt-6">
           {actionLabel}
         </Button>
       )}
     </div>
   );
 }
-
