@@ -173,6 +173,26 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License.
 
+## Deployment
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/anmolxlight/support-flow)
+
+### Vercel
+
+This project is configured for Vercel deployment with `vercel.json`. Connect your GitHub repo to Vercel and set the required environment variables:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+ELEVENLABS_API_KEY=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+```
+
+See `DEPLOYMENT.md` for detailed instructions on Vercel, AWS, and Docker deployment.
+
 ## Support
 
 For support, email anmolx.work@gmail.com or open an issue in the repository.
